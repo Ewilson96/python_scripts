@@ -101,8 +101,8 @@ for i in servers:
         if i == "ubuntu":
             print(f"\nUbuntu Services")
             print("=" * 40)
-            print(f"WS Status: {results['cockpit_status']}")
-            print(f"WS Status: {results['port_status']}")
+            print(f"Remote Access - Service Status: {results['cockpit_status']}")
+            print(f"Remote Access - Port Status: {results['port_status']}")
         print("\n")
 
     except Exception as e:
