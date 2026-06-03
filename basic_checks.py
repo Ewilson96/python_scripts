@@ -10,63 +10,103 @@ lab_controller = "labadmin"
 
 servers = ["pve", "ubuntu", "alma"]
 
-commands = {
-    "uptime": "uptime",
-    "disk": "df -h",
-    "memory": "free -m",
+general_cmds = {
     "hostname": "hostname",
+    "ip_address": "hostname -I",
+    "uptime": "uptime",
+    "os_version": "uname -r",
+    "disk": "df -h /",
+    "memory": "free -m",
     "date": "date"
+}
+
+ubuntu_cmds = {
+    "cockpit_status": "systemctl is-active cockpit.socket",
+    "port_status": "ss -tulpn | grep ':9090' | awk '{print $2}'"
+}
+
+controller_cmds = {
+    "proxy_status": "systemctl is-active pveproxy",
+    "pvedaemon_status": "systemctl is-active pvedaemon",
+    "cluster_status": "systemctl is-active pve-cluster",
+    "failed_services": "systemctl --failed --no-pager",
+    "error_logs": "journalctl -p err -n 20 --no-pager"
 }
 
 now = datetime.now()
 print(f"Timestamp: {now:%Y-%m-%d %H:%M:%S} EST")
 
-for server in servers:
+for i in servers:
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     try:
-        if server in ["ubuntu", "alma"]:
+        if i in ["ubuntu", "alma"]:
             username = user_account
-        elif server == "pve":
+        elif i == "pve":
             username = lab_controller
-        else:
-            print(f"Unknown server: {server}")
-            continue
-
+      
         ssh.connect(
-            server,
+            i,
             port=port,
             username=username,
             password=password,
             timeout=5
         )
 
+        all_commands = general_cmds.copy()
+
+        if i == "pve":
+            all_commands.update(controller_cmds)
+        elif i == "ubuntu":
+            all_commands.update(ubuntu_cmds)
+
         results = {}
 
-        for key, cmd in commands.items():
+        for key, cmd in all_commands.items():
             stdin, stdout, stderr = ssh.exec_command(cmd)
 
             output = stdout.read().decode("utf-8").strip()
             error = stderr.read().decode("utf-8").strip()
 
-            if error:
-                results[key] = f"ERROR: {error}"
-            else:
-                results[key] = output
+            results[key] = output if output else f"Invalid SSH Response: {error}"
 
         print("=" * 40)
-        print(f"HOST: {server}")
+        print(f"HOST: {i}")
         print("=" * 40)
-        print(f"Hostname:\n{results['hostname']}")
-        print(f"\nUptime:\n{results['uptime']}")
+        print(f"\nServer Date: {results['date']}")
+        print(f"Hostname: {results['hostname']}")
+        print(f"IP Address: {results['ip_address']}")
+        print(f"Uptime: {results['uptime']}")
+        print(f"OS Version: {results['os_version']}")
         print(f"\nDisk Usage:\n{results['disk']}")
         print(f"\nMemory:\n{results['memory']}")
-        print(f"\nServer Date:\n{results['date']}")
+        
+        if i == "pve":
+            print(f"\nPVE Services")
+            print("=" * 40)
+            print(f"PVE Proxy: {results['proxy_status']}")
+            print(f"PVE Daemon: {results['pvedaemon_status']}")
+            print(f"PVE Cluster: {results['cluster_status']}")
+
+            print(f"\nHOST: {i} - FAILED SERVICES")
+            print("-" * 40)
+            print(results["failed_services"])
+
+            print(f"\nHOST: {i} - RECENT ERROR LOGS")
+            print("-" * 40)
+            print(results["error_logs"])
+
+        if i == "ubuntu":
+            print(f"\nUbuntu Services")
+            print("=" * 40)
+            print(f"WS Status: {results['cockpit_status']}")
+            print(f"WS Status: {results['port_status']}")
+
         print()
 
     except Exception as e:
-        print(f"Error for {server}: {e}")
+        print(f"Error for {i}: {e}")
 
     finally:
         ssh.close()
