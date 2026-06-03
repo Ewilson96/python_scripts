@@ -5,7 +5,7 @@ from datetime import datetime
 
 port = 22
 user_account = "ewilson"
-password = "14971987"
+#password = "14971987"
 lab_controller = "labadmin"
 
 servers = ["pve", "ubuntu", "alma"]
@@ -72,7 +72,8 @@ for i in reachable_servers:
             i,
             port=port,
             username=username,
-            password=password,
+            #password=password,
+            key_filename="/home/ewilson/.ssh/id_ed25519",
             timeout=5
         )
 
