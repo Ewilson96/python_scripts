@@ -223,7 +223,7 @@ def prompt_and_update(hostname: str, upgradable_output: str) -> None:
     client = None
     try:
         client = get_ssh_client(hostname, username)
-        _, stdout, stderr = client.exec_command(cmd, get_pty=True)
+        _, stdout, stderr = client.exec_command(cmd, get_pty=True, timeout=60)
         # get_pty=True allocates a pseudo-terminal on the remote side.
         # This matters for sudo and for apt/dnf's progress output —
         # some programs buffer differently without a TTY attached.
