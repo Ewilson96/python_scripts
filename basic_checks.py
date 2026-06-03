@@ -34,6 +34,7 @@ controller_cmds = {
 }
 
 now = datetime.now()
+print("\n")
 print(f"Timestamp: {now:%Y-%m-%d %H:%M:%S} EST")
 
 for i in servers:
@@ -70,7 +71,7 @@ for i in servers:
             error = stderr.read().decode("utf-8").strip()
 
             results[key] = output if output else f"Invalid SSH Response: {error}"
-
+        
         print("=" * 40)
         print(f"HOST: {i}")
         print("=" * 40)
@@ -102,8 +103,7 @@ for i in servers:
             print("=" * 40)
             print(f"WS Status: {results['cockpit_status']}")
             print(f"WS Status: {results['port_status']}")
-
-        print()
+        print("\n")
 
     except Exception as e:
         print(f"Error for {i}: {e}")
