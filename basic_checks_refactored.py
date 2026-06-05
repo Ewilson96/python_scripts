@@ -13,6 +13,9 @@ Modules (as functions grouped by responsibility):
 import subprocess
 import paramiko
 from datetime import datetime
+import json
+import csv
+from pathlib import Path
 
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
@@ -27,6 +30,7 @@ from datetime import datetime
 
 PORT = 22
 KEY_PATH = "/home/ewilson/.ssh/id_ed25519"
+LOG_DIR = Path("/home/ewilson/home_lab/scripts/logs")
 
 # One entry per host.  Add "dbserver" here and it works everywhere automatically.
 SERVERS = {
@@ -256,6 +260,7 @@ def collect_host_data(hostname: str) -> dict | None:
     """
     cfg = SERVERS[hostname]
     cmds = {**GENERAL_CMDS, **HOST_CMDS.get(hostname, {})}
+    cmds_json = json.dumps(cmds)
 
     client = None
     try:
@@ -335,6 +340,23 @@ def _print_alma_section(results: dict) -> None:
     print(f"SSH daemon:      {results['ssh_status']}")
     print(f"Firewalld:       {results['fw_status']}")
 
+def log_engine(results: dict, hostname: str, reachable_hosts: int, total_hosts: int) -> None:
+    filename = LOG_DIR/f"{datetime.now():%Y%m%d_%H%M%S}_output.csv"  
+    data_row = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        # summary information
+        "reachable_vms": f"\n{reachable_hosts}/{total_hosts}\n",
+        "host": hostname,
+        # ** results == "take every key/value pair from results and insert them here"
+        **results,
+    }
+    
+    with open(filename, "w", newline="", encoding="utf-8") as f:
+        # Use the keys of the dictionary as the fieldnames (column headers)
+        log_writer = csv.DictWriter(f, fieldnames=data_row.keys())
+        log_writer.writeheader()  # Writes headers
+        log_writer.writerow(data_row)  # Writes values
+        
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 #
