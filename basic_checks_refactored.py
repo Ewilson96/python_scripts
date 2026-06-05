@@ -260,7 +260,7 @@ def collect_host_data(hostname: str) -> dict | None:
     """
     cfg = SERVERS[hostname]
     cmds = {**GENERAL_CMDS, **HOST_CMDS.get(hostname, {})}
-    cmds_json = json.dumps(cmds)
+    #cmds_json = json.dumps(cmds)
 
     client = None
     try:
@@ -340,24 +340,32 @@ def _print_alma_section(results: dict) -> None:
     print(f"SSH daemon:      {results['ssh_status']}")
     print(f"Firewalld:       {results['fw_status']}")
 
-def log_engine(results: dict, hostname: str, reachable_hosts: int, total_hosts: int) -> None:
-    filename = LOG_DIR/f"{datetime.now():%Y%m%d_%H%M%S}_output.csv"  
+def log_engine(results: dict, hostname: str, reachable: int, total: int) -> None:
+    filename = LOG_DIR/f"{datetime.now():%Y%m%d-%H%M%S}_{hostname}_status.csv"  
     data_row = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         # summary information
-        "reachable_vms": f"\n{reachable_hosts}/{total_hosts}\n",
+        "reachable_vms": f"Available Machines:{reachable}/{total}",
         "host": hostname,
         # ** results == "take every key/value pair from results and insert them here"
         **results,
     }
     
-    with open(filename, "w", newline="", encoding="utf-8") as f:
+    #with open(filename, "w", newline="", encoding="utf-8") as f:
         # Use the keys of the dictionary as the fieldnames (column headers)
-        log_writer = csv.DictWriter(f, fieldnames=data_row.keys())
-        log_writer.writeheader()  # Writes headers
-        log_writer.writerow(data_row)  # Writes values
+        #log_writer = csv.DictWriter(f, fieldnames=data_row.keys())
+        #log_writer.writeheader()  # Writes headers
+        #log_writer.writerow(data_row)  # Writes values
+            
+    with open(filename, "w") as f:
+        f.write(f"Available Machines: {reachable}/{total}\n")
+        f.write(f"Hostname: {results['hostname']}\n")
+        f.write("-" * 40 + "\n")
+        #f.write(f"IP: {results['ip_address']}\n")
         
-
+        for key, value in results.items():
+            f.write(f"{key}: {value}\n")
+        
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 #
 # main() should read like a table of contents — high-level steps only.
@@ -367,7 +375,7 @@ def log_engine(results: dict, hostname: str, reachable_hosts: int, total_hosts: 
 # it lets another script import your functions without triggering a full run.
 
 def main() -> None:
-    reachable = get_reachable(SERVERS)
+    reachable = get_reachable(SERVERS) 
     print_summary(reachable, len(SERVERS))
 
     # Phase 1: collect and display data for all hosts first.
@@ -378,7 +386,8 @@ def main() -> None:
         if results:
             all_results[host] = results
             print_host(host, results)
-
+            log_engine(results,host,len(reachable),len(SERVERS))
+    
     # Phase 2: after the full report, prompt for updates host-by-host.
     # Doing this after Phase 1 means the user sees the complete health picture
     # before making any update decisions — not interrupted mid-report.
@@ -388,7 +397,6 @@ def main() -> None:
     for host, results in all_results.items():
         if "upgradable" in results:
             prompt_and_update(host, results["upgradable"])
-
-
+    
 if __name__ == "__main__":
     main()
