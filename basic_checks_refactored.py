@@ -65,7 +65,8 @@ HOST_CMDS = {
         "port_status": "ss -tulpn | grep ':9090' | awk '{print $2}'",
         #last wg handshake 
         "wiregaurd_hs": "date -d @$(sudo -n /usr/bin/wg show wg0 latest-handshakes | awk '{print $2}')",
-        "vpn_intf": "if ip -brief addr show wg0 | grep -q '10.0.0.1/24'; then     echo 'interface is up.'; else     echo 'INTERFACE DOWN'; fi",
+        "vpn_intf": "if ip -brief addr show wg0 | grep -q '10.0.0.1/24'; then     echo 'interface is enabled!'; else     echo 'interface is disabled!'; fi",
+        "ddns_status": "duckdns=$(dig +short ewilso73homelab.duckdns.org); public_v4=$(curl -4 -s ifconfig.me); if [[ \"$duckdns\" == \"$public_v4\" ]]; then echo 'service is up!'; else echo 'service is down!'; fi",
         "upgradable":     "apt list --upgradable 2>/dev/null",
     },
     "alma": {
@@ -211,7 +212,7 @@ def prompt_and_update(hostname: str, upgradable_output: str) -> None:
         print(f"  {hostname}: already up to date, skipping update prompt.\n")
         return
 
-    print(f"\n{'─' * 40}")
+    print(f"{'─' * 40}")
     print(f"  Upgradable packages on {hostname}:")
     print(f"{'─' * 40}")
     print(upgradable_output)
@@ -333,9 +334,10 @@ def _print_pve_section(hostname: str, results: dict) -> None:
 def _print_ubuntu_section(results: dict) -> None:
     print(f"\nUbuntu Services")
     print("=" * 40)
-    print(f"VPN status: {results['vpn_intf']}, last check-in {results['wiregaurd_hs']}")
-    print(f"Cockpit service: {results['cockpit_status']}")
-    print(f"Cockpit port:    {results['port_status']}")
+    print(f"VPN status:  {results['vpn_intf']}\nLast WG handshake/check-in: {results['wiregaurd_hs']}")
+    print(f"DDNS status:  {results['ddns_status']}")
+    print(f"cockpit.socket status: {results['cockpit_status']}")
+    print(f"cockpit.socket port:   {results['port_status']}ING port 9090")
 
 
 def _print_alma_section(results: dict) -> None:
@@ -346,21 +348,7 @@ def _print_alma_section(results: dict) -> None:
 
 def log_engine(results: dict, hostname: str, reachable: int, total: int) -> None:
     filename = LOG_DIR/f"{datetime.now():%Y%m%d-%H%M%S}_{hostname}_status.csv"  
-    data_row = {
-        # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        # summary information
-        "reachable_vms": f"Available Machines:{reachable}/{total}",
-        "host": hostname,
-        # ** results == "take every key/value pair from results and insert them here"
-        **results,
-    }
-    
-    #with open(filename, "w", newline="", encoding="utf-8") as f:
-        # Use the keys of the dictionary as the fieldnames (column headers)
-        #log_writer = csv.DictWriter(f, fieldnames=data_row.keys())
-        #log_writer.writeheader()  # Writes headers
-        #log_writer.writerow(data_row)  # Writes values
-            
+
     with open(filename, "w") as f:
         f.write(f"Available Machines: {reachable}/{total}\n")
         f.write(f"Hostname: {results['hostname']}\n")
@@ -394,7 +382,7 @@ def main() -> None:
     # Phase 2: after the full report, prompt for updates host-by-host.
     # Doing this after Phase 1 means the user sees the complete health picture
     # before making any update decisions — not interrupted mid-report.
-    print("\n" + "=" * 40)
+    print("=" * 40)
     print("  UPDATE CHECK")
     print("=" * 40)
     for host, results in all_results.items():
