@@ -62,7 +62,10 @@ HOST_CMDS = {
     },
     "ubuntu": {
         "cockpit_status": "systemctl is-active cockpit.socket",
-        "port_status":    "ss -tulpn | grep ':9090' | awk '{print $2}'",
+        "port_status": "ss -tulpn | grep ':9090' | awk '{print $2}'",
+        #last wg handshake 
+        "wiregaurd_hs": "date -d @$(sudo -n /usr/bin/wg show wg0 latest-handshakes | awk '{print $2}')",
+        "vpn_intf": "if ip -brief addr show wg0 | grep -q '10.0.0.1/24'; then     echo 'interface is up.'; else     echo 'INTERFACE DOWN'; fi",
         "upgradable":     "apt list --upgradable 2>/dev/null",
     },
     "alma": {
@@ -330,6 +333,7 @@ def _print_pve_section(hostname: str, results: dict) -> None:
 def _print_ubuntu_section(results: dict) -> None:
     print(f"\nUbuntu Services")
     print("=" * 40)
+    print(f"VPN status: {results['vpn_intf']}, last check-in {results['wiregaurd_hs']}")
     print(f"Cockpit service: {results['cockpit_status']}")
     print(f"Cockpit port:    {results['port_status']}")
 
@@ -361,7 +365,6 @@ def log_engine(results: dict, hostname: str, reachable: int, total: int) -> None
         f.write(f"Available Machines: {reachable}/{total}\n")
         f.write(f"Hostname: {results['hostname']}\n")
         f.write("-" * 40 + "\n")
-        #f.write(f"IP: {results['ip_address']}\n")
         
         for key, value in results.items():
             f.write(f"{key}: {value}\n")
