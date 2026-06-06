@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+Ennil Wilson
 Server health check script — modular refactor.
 
 Modules (as functions grouped by responsibility):
