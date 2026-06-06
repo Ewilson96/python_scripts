@@ -209,11 +209,12 @@ def prompt_and_update(hostname: str, upgradable_output: str) -> None:
       the user live feedback.
     """
     if not has_updates(upgradable_output, hostname):
-        print(f"  {hostname}: already up to date, skipping update prompt.\n")
+        print(f"  {hostname}: currently up to date.\n")
         return
 
     print(f"{'─' * 40}")
-    print(f"  Upgradable packages on {hostname}:")
+    #       ────────────────────────────────────────
+    print(f"       Upgradable packages on {hostname}:")
     print(f"{'─' * 40}")
     print(upgradable_output)
 
@@ -225,13 +226,13 @@ def prompt_and_update(hostname: str, upgradable_output: str) -> None:
 
     cmd = UPDATE_CMD[hostname]
     username = SERVERS[hostname]["username"]
-    print(f"\n  Running: {cmd}")
+    print(f"\n      Running: {cmd}")
     print(f"{'─' * 40}")
 
     client = None
     try:
         client = get_ssh_client(hostname, username)
-        _, stdout, stderr = client.exec_command(cmd, get_pty=True, timeout=60)
+        _, stdout, stderr = client.exec_command(cmd, get_pty=True, timeout=90)
         # get_pty=True allocates a pseudo-terminal on the remote side.
         # This matters for sudo and for apt/dnf's progress output —
         # some programs buffer differently without a TTY attached.
@@ -289,13 +290,15 @@ def collect_host_data(hostname: str) -> dict | None:
 def print_summary(reachable: list, total: int) -> None:
     now = datetime.now()
     print(f"\nTimestamp: {now:%Y-%m-%d %H:%M:%S} EST")
-    print(f"\n*** Reachable VMs: {len(reachable)}/{total} ***\n")
+    print(f"\n      *** Reachable VMs: {len(reachable)}/{total} ***\n")
 
 
 def print_host(hostname: str, results: dict) -> None:
     """Print the formatted report for one host."""
     print("=" * 40)
-    print(f"HOST: {hostname}")
+           #========================================
+    print(f"{'              HOST: ' + hostname.upper():^20}")
+    #print(f"HOST: {hostname.upper():^20}")
     print("=" * 40)
     print(f"\nServer Date: {results['date']}")
     print(f"Hostname:    {results['hostname']}")
@@ -318,21 +321,23 @@ def print_host(hostname: str, results: dict) -> None:
 
 
 def _print_pve_section(hostname: str, results: dict) -> None:
-    print(f"\nPVE Services")
+              #========================================
+    print(f"\n            15 PVE Services")
     print("=" * 40)
     print(f"PVE Proxy:   {results['proxy_status']}")
     print(f"PVE Daemon:  {results['pvedaemon_status']}")
     print(f"PVE Cluster: {results['cluster_status']}")
-    print(f"\nHOST: {hostname} — systemctl failed services")
+    print(f"\n      HOST:systemctl failed services")
     print("-" * 40)
     print(results["failed_services"])
-    print(f"\nHOST: {hostname} — journalctl recent errors")
+    print(f"\n     HOST: journalctl recent errors")
+           #   ----------------------------------------
     print("-" * 40)
     print(results["error_logs"])
 
 
 def _print_ubuntu_section(results: dict) -> None:
-    print(f"\nUbuntu Services")
+    print(f"\n             Ubuntu Services")
     print("=" * 40)
     print(f"VPN status:  {results['vpn_intf']}\nLast WG handshake/check-in: {results['wiregaurd_hs']}")
     print(f"DDNS status:  {results['ddns_status']}")
@@ -341,7 +346,8 @@ def _print_ubuntu_section(results: dict) -> None:
 
 
 def _print_alma_section(results: dict) -> None:
-    print(f"\nAlma Services")
+    print(f"\n             Alma Services")
+    #         ========================================
     print("=" * 40)
     print(f"SSH daemon:      {results['ssh_status']}")
     print(f"Firewalld:       {results['fw_status']}")
@@ -383,7 +389,7 @@ def main() -> None:
     # Doing this after Phase 1 means the user sees the complete health picture
     # before making any update decisions — not interrupted mid-report.
     print("=" * 40)
-    print("  UPDATE CHECK")
+    print("           Application Checks")
     print("=" * 40)
     for host, results in all_results.items():
         if "upgradable" in results:
