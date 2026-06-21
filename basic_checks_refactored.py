@@ -80,11 +80,21 @@ HOST_CMDS = {
 # Maps each host to its package manager's update command.
 # Separated from HOST_CMDS because this command is only run on-demand
 # after user confirmation — it's an action, not a read-only query.
+
 UPDATE_CMD = {
-    "pve":    "sudo apt-get update -y && sudo apt-get upgrade -y",
-    "ubuntu": "sudo apt-get update -y && sudo apt-get upgrade -y",
-    "alma":   "sudo dnf upgrade -y",
-}
+    "ubuntu": ["sudo apt-get update -y", "sudo apt-get upgrade -y"],
+    "alma": ["sudo dnf upgrade -y"]
+    }
+SNAP_CMD = {"ubuntu": ["sudo snap refresh"]}
+
+# UPDATE_CMD = {
+#     "pve":    "sudo apt-get update -y && sudo apt-get upgrade -y",
+#     "ubuntu": "sudo apt-get update -y && sudo apt-get upgrade -y",
+#     "alma":   "sudo dnf upgrade -y",
+# }
+# SNAP_CMD = {
+#     "ubuntu": "sudo snap refresh"
+# }
 
 
 # ─── CONNECTIVITY ────────────────────────────────────────────────────────────
@@ -107,15 +117,18 @@ def ping_host(hostname: str) -> bool:
 def get_reachable(servers: dict) -> list[str]:
     """
     Ping every server; print a notice for unreachable ones.
-    Returns a list of reachable hostnames in the original order.
+    Returns a list of reachable and unreachable hostnames in the original order.
     """
     reachable = []
+    unreachable = []
     for host in servers:
         if ping_host(host):
             reachable.append(host)
         else:
             print(f"{host} is down.")
-    return reachable
+            unreachable.append(host)
+
+    return reachable, unreachable
 
 
 # ─── SSH RUNNER ──────────────────────────────────────────────────────────────
@@ -151,8 +164,8 @@ def run_commands(client: paramiko.SSHClient, commands: dict) -> dict:
       ignorant of all that.
     """
     results = {}
-    for key, cmd in commands.items():
-        _, stdout, stderr = client.exec_command(cmd)
+    for key, multi_update in commands.items():
+        _, stdout, stderr = client.exec_command(multi_update)
         output = stdout.read().decode().strip()
         error  = stderr.read().decode().strip()
         results[key] = output if output else f"[no output: {error}]"
@@ -225,15 +238,22 @@ def prompt_and_update(hostname: str, upgradable_output: str) -> None:
         print(f"  Skipping update on {hostname}.")
         return
 
-    cmd = UPDATE_CMD[hostname]
+    apt_update = UPDATE_CMD[hostname].copy()
+    if hostname in SNAP_CMD:
+        apt_update.extend(SNAP_CMD[hostname])
+    multi_update = " && ".join(apt_update)
+
     username = SERVERS[hostname]["username"]
-    print(f"\n      Running: {cmd}")
+    print(f"\n      Running: {apt_update}")
     print(f"{'─' * 40}")
+    print(f"\n      Running: {multi_update}")
+    print(f"{'─' * 40}")
+    
 
     client = None
     try:
         client = get_ssh_client(hostname, username)
-        _, stdout, stderr = client.exec_command(cmd, get_pty=True, timeout=90)
+        _, stdout, stderr = client.exec_command(multi_update, get_pty=True, timeout=90)
         # get_pty=True allocates a pseudo-terminal on the remote side.
         # This matters for sudo and for apt/dnf's progress output —
         # some programs buffer differently without a TTY attached.
@@ -288,11 +308,12 @@ def collect_host_data(hostname: str) -> dict | None:
 #   If you ever want JSON output, a log file, or a Slack webhook, you only
 #   change this section.  The data-gathering code doesn't move at all.
 
-def print_summary(reachable: list, total: int) -> None:
+def print_summary(reachable: list, unreachble: list, total: int) -> None:
     now = datetime.now()
     print(f"\nTimestamp: {now:%Y-%m-%d %H:%M:%S} EST")
     print(f"\n      *** Reachable VMs: {len(reachable)}/{total} ***\n")
-
+    if unreachble:  
+        print(f"            +++ Unreachable VMs: {unreachble} \n")
 
 def print_host(hostname: str, results: dict) -> None:
     """Print the formatted report for one host."""
@@ -373,8 +394,8 @@ def log_engine(results: dict, hostname: str, reachable: int, total: int) -> None
 # it lets another script import your functions without triggering a full run.
 
 def main() -> None:
-    reachable = get_reachable(SERVERS) 
-    print_summary(reachable, len(SERVERS))
+    reachable, unreachable = get_reachable(SERVERS)
+    print_summary(reachable, unreachable, len(SERVERS))
 
     # Phase 1: collect and display data for all hosts first.
     # We store results so Phase 2 can use them without re-running SSH queries.
